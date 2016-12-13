@@ -40,6 +40,7 @@ cursor.init = function init(options) {
   options = options || {};
   this.db = options.db;
   this.ns = options.ns;
+  this.nsExact = options.nsExact;
   this.ts = options.ts;
   this.cn = options.coll || 'oplog.rs';
   if (!this.db) throw new Error('Mongo db is missing.');
@@ -57,8 +58,17 @@ cursor.init = function init(options) {
 cursor.cursor = function get(fn) {
   var query = {};
   var ns = this.ns;
+  var nsExact = this.nsExact;
   var coll = this.coll;
-  if (ns) query.ns = { $regex: regex(ns) };
+  if (ns) {
+      if (nsExact) {
+        query.nsExact = nsExact;
+      } else {
+        // NOTE: case insensitive regex queries do not perform well on the oplog
+        // collection. It ignores indexes.
+        query.ns = { $regex: regex(ns) };
+      }
+  }
   this.timestamp(function timestamp(err, ts) {
     if (err) return fn(err);
     query.ts = { $gt: ts };
